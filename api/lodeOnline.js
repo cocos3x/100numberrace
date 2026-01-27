@@ -1,6 +1,20 @@
+// ===== BUFFER LOG FOR NODE / VERCEL =====
+let __OUT__ = [];
+
+function log(x) {
+  __OUT__.push(String(x));
+}
+
+function resetLog() {
+  __OUT__ = [];
+}
+
+function getLog() {
+  return __OUT__.join("\n");
+}
 
 /* AUTO-CONVERTED FROM GOOGLE APPS SCRIPT (.gs) */
-const Logger = { log: (...a)=>console.log(...a) };
+const Logger = { log: (...a)=>log(...a) };
 const Utilities = {
   formatDate(d,t,f){
     if(f==="u"){ const x=new Date(d).getDay(); return x===0?"7":String(x); }
@@ -1660,6 +1674,7 @@ var LodeOnline = {
 
   // ====== MAIN ======
   run: function () {
+     resetLog();        
     this.lines = [];
     this.copy  = "xoso";
 
@@ -2209,6 +2224,7 @@ console.log(
       Logger.log("ERROR: " + e);
       Logger.log(e.stack);
     }
+      return getLog();  
   },
 
   // =======================
