@@ -1,6 +1,12 @@
-// AUTO-CONVERTED FROM GAS TO NODE/VERCEL
-// NOTE: Logic preserved. GAS services replaced with Node equivalents.
-// Ensure Node 18+ (global fetch available).
+
+/* AUTO-CONVERTED FROM GOOGLE APPS SCRIPT (.gs) */
+const Logger = { log: (...a)=>console.log(...a) };
+const Utilities = {
+  formatDate(d,t,f){
+    if(f==="u"){ const x=new Date(d).getDay(); return x===0?"7":String(x); }
+    return "";
+  }
+};
 
 // =======================
 // StreakAnalyzer - Google Apps Script version (có FIXED_49_1 → FIXED_49_7)
@@ -9,7 +15,7 @@
 // Dùng: 
 // const days = [14, 58, 73, 22, 90, 11, 47];
 // const resultAll = StreakAnalyzer.analyzeAllFormulas(days);
-// console.log(JSON.stringify(resultAll, null, 2));
+// Logger.log(JSON.stringify(resultAll, null, 2));
 
 var StreakAnalyzer = {
 
@@ -1649,18 +1655,18 @@ var LodeOnline = {
 
   flushToLog: function () {
     var combined = this.lines.join("\n");
-    console.log(combined);
+    Logger.log(combined);
   },
 
   // ====== MAIN ======
-  run: async function() {
+  run: function () {
     this.lines = [];
     this.copy  = "xoso";
 
     try {
-      console.log("============================================1");
+      Logger.log("============================================1");
       var dataGoc = this.fetchJson(this.url);
-      console.log("============================================2");
+      Logger.log("============================================2");
       var issueList = this.ensureIssueList(dataGoc);
 
       // Lấy 10 ngày gần nhất từ url2
@@ -1683,17 +1689,17 @@ var LodeOnline = {
 // var historyT = this.extractHistoryObject(issueList);
 //  this.logAllRules(issueList);
 
-      // console.log("History length = " + history.length);
-     //  console.log(history);
+      // Logger.log("History length = " + history.length);
+     //  Logger.log(history);
        var listLo = this.extractHistoryLo(issueList);
 var params = { recentWindow: 30, minSamples: 5 };
-console.log("Lô ngắn ngày");
+Logger.log("Lô ngắn ngày");
   var s = this.streakSummary2(listLo, params);
   this.addLine("🎯 2 2số đang chơi: " + (s.currentPick.length ? s.currentPick.join(", ") : "Không có"));
   this.addLine("📈 Dây hiện tại: " + s.current);
   this.addLine("🔥 Max WIN: " + s.maxWin);
  this.addLine("❄️ Max LOSS: " + s.maxLoss);
-console.log("Lô theo giải đặc biệt 2");
+Logger.log("Lô theo giải đặc biệt 2");
 const opt = {
   aGap: 1.4,   // thử 1.25 rồi 1.40 xem top10 có đổi không
   dF2: 2.4,
@@ -1703,10 +1709,10 @@ const opt = {
   recentDays: 200
 };
      const aaa = this.predictNextNumber(listLo,opt);
-console.log("🎯 Dự đoán ngày mai: " + aaa.pick);
-console.log("✅ Win rate (all): " + (aaa.estWinRate * 100).toFixed(2) + "%");
-console.log("✅ Win rate (recent): " + (aaa.estWinRateRecent * 100).toFixed(2) + "%");
-console.log(
+Logger.log("🎯 Dự đoán ngày mai: " + aaa.pick);
+Logger.log("✅ Win rate (all): " + (aaa.estWinRate * 100).toFixed(2) + "%");
+Logger.log("✅ Win rate (recent): " + (aaa.estWinRateRecent * 100).toFixed(2) + "%");
+Logger.log(
   "📌 Dây hiện tại: " +
   (aaa.currentStreakType === "WIN"
     ? "🔥 WIN x" + aaa.currentStreakLen
@@ -1715,8 +1721,8 @@ console.log(
       : "NONE")
 );
 
-console.log("🔥 Max WIN: " + aaa.maxWIN);
-console.log("❄️ Max LOSS: " + aaa.maxLOSS);
+Logger.log("🔥 Max WIN: " + aaa.maxWIN);
+Logger.log("❄️ Max LOSS: " + aaa.maxLOSS);
 
 
 // var kq = this.trangTrinh_1so(1988,9,18);
@@ -2092,9 +2098,9 @@ console.log(
    
   // }
 
-      console.log("============================================");
-      console.log("CÁC CÔNG THỨC XẾP THEO % DÂY HIỆN TẠI (GIẢM DẦN)");
-      console.log("============================================");
+      Logger.log("============================================");
+      Logger.log("CÁC CÔNG THỨC XẾP THEO % DÂY HIỆN TẠI (GIẢM DẦN)");
+      Logger.log("============================================");
 
       // ====== 4. Duyệt theo thứ tự đã sort và log chi tiết ======
       for (var idx = 0; idx < list.length; idx++) {
@@ -2112,11 +2118,11 @@ console.log(
         var groupCurrentNums = groupsNum.currentNums;
         var groupOtherNums = groupsNum.otherNums;
 
-        // console.log("────────────────────────────────────────────");
+        // Logger.log("────────────────────────────────────────────");
         this.addLine("────────────────────────────────────────────");
 
-        // console.log((idx + 1) + ".", "CÔNG THỨC:", id);
-        // console.log(
+        // Logger.log((idx + 1) + ".", "CÔNG THỨC:", id);
+        // Logger.log(
         //   "   👉 Dây hiện tại:"+
         //   labelCurrent+
         //   "| Độ dài:"+ cur.length,
@@ -2141,7 +2147,7 @@ console.log(
 
         if (top2Len > 0) {
           var top2Percent = ((cur.length / top2Len) * 100).toFixed(1);
-          // console.log(
+          // Logger.log(
           //   "   👉 Dây hiện tại: Top2 "+
           //   labelCurrent+
           //   "| Độ dài:"+cur.length+
@@ -2160,12 +2166,12 @@ console.log(
 
         // ====== TOP 1,2,3 của NHÓM ĐANG CHẠY ======
         if (groupData && groupData.top3 && groupData.top3.length > 0) {
-          // console.log("   TOP 1–3 dây của nhóm đang chạy (" + labelCurrent + "):");
+          // Logger.log("   TOP 1–3 dây của nhóm đang chạy (" + labelCurrent + "):");
           this.addLine("TOP 1–3 dây của nhóm đang chạy (" + labelCurrent + "):");
 
           for (var j = 0; j < groupData.top3.length; j++) {
             var t = groupData.top3[j];
-            // console.log(
+            // Logger.log(
             //   "      TOP"+ (j + 1)+
             //   "→ Len:"+ t.length+
             //   "| StartIndex:"+ t.startIndex+
@@ -2179,13 +2185,13 @@ console.log(
             );
           }
         } else {
-          // console.log("   🔝 Nhóm " + labelCurrent + " chưa có dữ liệu dây (top3 rỗng).");
+          // Logger.log("   🔝 Nhóm " + labelCurrent + " chưa có dữ liệu dây (top3 rỗng).");
           this.addLine("Nhóm " + labelCurrent + " chưa có dữ liệu dây (top3 rỗng).");
         }
 
         // ====== Bộ 50 số CHỌN (như code bạn đang dùng là lấy mảng còn lại) ======
-        // console.log("   🎯 Bộ 50 số được CHỌN:");
-        // console.log("      " + this.formatArray(groupOtherNums));
+        // Logger.log("   🎯 Bộ 50 số được CHỌN:");
+        // Logger.log("      " + this.formatArray(groupOtherNums));
         this.addLine("Bộ 50 số được CHỌN:");
         this.addLine(this.formatArray(groupOtherNums));
 
@@ -2196,12 +2202,12 @@ console.log(
  }
       this.flushToLog();
 
-      // console.log("✅ Xong: đã sort theo % và log 2 mảng 50 số cho từng công thức.");
-      console.log("Chuỗi copy (50 số): " + this.copy);
+      // Logger.log("✅ Xong: đã sort theo % và log 2 mảng 50 số cho từng công thức.");
+      Logger.log("Chuỗi copy (50 số): " + this.copy);
 
     } catch (e) {
-      console.log("ERROR: " + e);
-      console.log(e.stack);
+      Logger.log("ERROR: " + e);
+      Logger.log(e.stack);
     }
   },
 
@@ -2209,7 +2215,7 @@ console.log(
   // HÀM LẤY 10 NGÀY GẦN NHẤT
   // =======================
   lay10ngaygannhat: function () {
-    console.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...");
+    Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...");
     var data = this.fetchJson(this.url2);
     var issueList = this.ensureIssueLis2t(data);
     return issueList;
@@ -2228,11 +2234,11 @@ console.log(
       "Referer": "https://xoso188.net/"
     }
   };
-    var res = fetch(url, options);
+    var res = UrlFetchApp.fetch(url, options);
     
     var code = res.getResponseCode();
-    console.log(res.getResponseCode());
-console.log(res.getContentText());
+    Logger.log(res.getResponseCode());
+Logger.log(res.getContentText());
     if (code >= 200 && code < 300) {
       return JSON.parse(res.getContentText());
     }
@@ -3200,7 +3206,7 @@ logAllRules:function(issueList) {
   for (var r = 0; r < rules.length; r++) {
     var rule = rules[r];
 
-    console.log("========== RULE: " + rule.name + " ==========");
+    Logger.log("========== RULE: " + rule.name + " ==========");
 this.addLine("========== RULE: " + rule.name + " ==========");
     // lấy lịch sử + phân tích
     var history = this.extractHistoryObject(issueList, rule.code);
@@ -3228,7 +3234,7 @@ this.addLine("========== RULE: " + rule.name + " ==========");
         line += " | hiện tại: " + s.currentType + " (" + s.currentStreak + ")";
       }
 
-      console.log(line);
+      Logger.log(line);
        this.addLine(line);
     }
 
@@ -3247,7 +3253,7 @@ this.addLine("========== RULE: " + rule.name + " ==========");
         var percent = Math.round(ratio * 100);
 
         if (ratio >= 0.8) {
-          console.log(
+          Logger.log(
             "👉 KẾT LUẬN: NÊN ĐÁNH + 50 số nhóm " +
             (todayStat.currentType === "A" ? "B" : "A") +
             " (cắt cầu " + todayStat.currentType + ", " + percent + "%)"
@@ -3258,7 +3264,7 @@ this.addLine("========== RULE: " + rule.name + " ==========");
             " (cắt cầu " + todayStat.currentType + ", " + percent + "%)"
           );
         } else {
-          console.log(
+          Logger.log(
             "👉 KẾT LUẬN: KHÔNG NÊN ĐÁNH (" + percent + "%)"
           );
          
@@ -3273,13 +3279,13 @@ this.addLine("========== RULE: " + rule.name + " ==========");
   this.addLine(numbers.join(", "));
 
       } else {
-        console.log("👉 KẾT LUẬN: KHÔNG CÓ CẦU");
+        Logger.log("👉 KẾT LUẬN: KHÔNG CÓ CẦU");
       }
     } else {
-      console.log("👉 KẾT LUẬN: KHÔNG CÓ CẦU");
+      Logger.log("👉 KẾT LUẬN: KHÔNG CÓ CẦU");
     }
 
-    console.log(""); // dòng trống giữa các rule
+    Logger.log(""); // dòng trống giữa các rule
   }
 },
 
@@ -3294,12 +3300,12 @@ logResult: function(stats, ruleName) {
     7: "T7"
   };
 
-  console.log("========== RULE2: %s ==========", ruleName);
+  Logger.log("========== RULE2: %s ==========", ruleName);
   this.addLine("========== RULE: %s ==========", ruleName);
 
   for (var d = 1; d <= 7; d++) {
     var s = stats[d];
-    console.log(
+    Logger.log(
       "%s : 2maxA %s | 2maxB %s | hiện tại: %s (%s)",
       name[d],
       s.maxAStreak,
@@ -3929,12 +3935,12 @@ analyzePredictionArray: function (A) {
   // ===== TOP 5 =====
   let top5 = sorted.slice(0, 5);
 
-  console.log('Dây hiện tại chưa về: ' + days[0] + ' ngày');
-  console.log('TOP 5 DÂY KÉP CHƯA VỀ:');
+  Logger.log('Dây hiện tại chưa về: ' + days[0] + ' ngày');
+  Logger.log('TOP 5 DÂY KÉP CHƯA VỀ:');
 
   top5.forEach((d, i) => {
     let mark = (d === days[0]) ? ' <-- DÂY HIỆN TẠI' : '';
-    console.log(`#${i + 1}: ${d} ngày${mark}`);
+    Logger.log(`#${i + 1}: ${d} ngày${mark}`);
   });
 
   return {
@@ -4130,17 +4136,17 @@ analyzePredictionArray: function (A) {
     };
   });
 
-  console.log("=== CẦU 50 ĐANG CHẠY DÀI NHẤT (từ hôm nay) ===");
-  console.log(bestCurrent.name + " | currentStreak=" + bestCurrent.current);
+  Logger.log("=== CẦU 50 ĐANG CHẠY DÀI NHẤT (từ hôm nay) ===");
+  Logger.log(bestCurrent.name + " | currentStreak=" + bestCurrent.current);
 
-  console.log("=== GỢI Ý CẦU ƯU TIÊN CHO NGÀY TIẾP THEO ===");
-  console.log(pick.name +
+  Logger.log("=== GỢI Ý CẦU ƯU TIÊN CHO NGÀY TIẾP THEO ===");
+  Logger.log(pick.name +
              " | currentStreak=" + pick.current +
              " | pKeepAtCurrent=" + (pick.pKeepAtCurrent == null ? "null" : pick.pKeepAtCurrent.toFixed(3)) +
              " | risk=" + pick.risk + "/100");
 
-  console.log("=== BẢNG TỔNG HỢP 4 CẦU 50 ===");
-  console.log(JSON.stringify(table, null, 2));
+  Logger.log("=== BẢNG TỔNG HỢP 4 CẦU 50 ===");
+  Logger.log(JSON.stringify(table, null, 2));
 
   return { bestCurrent: bestCurrent, pick: pick, table: table };
 },
@@ -4215,7 +4221,7 @@ analyzePredictionArray: function (A) {
     
     trangTrinhSo:function() {
  
-  console.log("===== BẮT ĐẦU TÍNH TRẠNG TRÌNH =====");
+  Logger.log("===== BẮT ĐẦU TÍNH TRẠNG TRÌNH =====");
 
   // ====== INPUT ======
   const birthYear = 1988; // năm sinh dương
@@ -4226,7 +4232,7 @@ analyzePredictionArray: function (A) {
   const month = today.getMonth() + 1;
   const year = today.getFullYear();
 
-  console.log("Ngày hiện tại: " + day + "/" + month + "/" + year);
+  Logger.log("Ngày hiện tại: " + day + "/" + month + "/" + year);
 
   // ====== TUỔI ÂM ======
   const ageLunar = year - birthYear + 1;
@@ -4626,11 +4632,7 @@ analyzePredictionArray: function (A) {
 function runLodeOnline() {
   LodeOnline.run();
   // Kết quả log xem trong: View > Logs
-}
-function doGet(e) {
-  LodeOnline.run();
-
-  var output  = LodeOnline.lines.join("\n");
+var output  = LodeOnline.lines.join("\n");
   var copyText = LodeOnline.copy || "";
     var copyText25 = LodeOnline.copy25 || "";
       var copyText36 = LodeOnline.copy36 || "";
@@ -4652,7 +4654,6 @@ function doGet(e) {
         color: #111;
         margin: 0;
       }
-
       /* Nút gốc */
       #copyBtn {
         position: fixed;
@@ -4778,8 +4779,6 @@ function doGet(e) {
 </html>
   `;
 
-  return // HtmlService.createHtmlOutput (removed for Node)(html)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function escapeHtml(s) {
@@ -4788,4 +4787,15 @@ function escapeHtml(s) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+
+export default async function handler(req,res){
+  try{
+    const r = (typeof lodeOnlineRun==="function") ? lodeOnlineRun() : null;
+    res.setHeader("Content-Type","text/plain; charset=utf-8");
+    res.status(200).send(typeof r==="string"?r:JSON.stringify(r,null,2));
+  }catch(e){
+    res.status(500).json({ok:false,error:e.message,stack:e.stack});
+  }
 }
