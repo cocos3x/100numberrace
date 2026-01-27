@@ -1676,12 +1676,12 @@ export const  LodeOnline = {
 
   // ====== MAIN ======
   run: function () {
-    console.log("hello=====");
-     resetLog();        
+    console.log("hello=====2");
+    //  resetLog();        
     this.lines = [];
     this.copy  = "xoso";
 
-    try {
+ 
       console.log("============================================1");
       var dataGoc = this.fetchJson(this.url);
       console.log("============================================2");
@@ -2223,10 +2223,7 @@ console.log(
       // Logger.log("✅ Xong: đã sort theo % và log 2 mảng 50 số cho từng công thức.");
       Logger.log("Chuỗi copy (50 số): " + this.copy);
 
-    } catch (e) {
-      Logger.log("ERROR: " + e);
-      Logger.log(e.stack);
-    }
+    
       return getLog();  
   },
 
