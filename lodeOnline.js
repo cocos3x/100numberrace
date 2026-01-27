@@ -2242,19 +2242,14 @@ console.log(
   // =======================
   fetchJson: function (url) {
     const options = {
-    method: "get",
-    muteHttpExceptions: true,
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "application/json",
-      "Referer": "https://xoso188.net/"
-    }
+    muteHttpExceptions: true
+    
   };
     var res = UrlFetchApp.fetch(url, options);
     
     var code = res.getResponseCode();
-    Logger.log(res.getResponseCode());
-Logger.log(res.getContentText());
+    console.log(res.getResponseCode());
+console.log(res.getContentText());
     if (code >= 200 && code < 300) {
       return JSON.parse(res.getContentText());
     }
