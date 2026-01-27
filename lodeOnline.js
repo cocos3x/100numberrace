@@ -1675,7 +1675,7 @@ export const  LodeOnline = {
   },
 
   // ====== MAIN ======
-  run: function () {
+   run: async function () {
     console.log("hello=====2");
     //  resetLog();        
     this.lines = [];
@@ -1683,7 +1683,7 @@ export const  LodeOnline = {
 
  
       console.log("============================================1");
-      var dataGoc = this.fetchJson(this.url);
+      var dataGoc = await this.fetchJson(this.url);
       console.log("============================================2");
       var issueList = this.ensureIssueList(dataGoc);
 
@@ -2240,21 +2240,12 @@ console.log(
   // =======================
   // FETCH JSON (server-side, KHÔNG cần CORS / proxy)
   // =======================
-  fetchJson: function (url) {
-    const options = {
-    muteHttpExceptions: true
-    
-  };
-    var res = UrlFetchApp.fetch(url, options);
-    
-    var code = res.getResponseCode();
-    console.log(res.getResponseCode());
-console.log(res.getContentText());
-    if (code >= 200 && code < 300) {
-      return JSON.parse(res.getContentText());
-    }
-    throw new Error("HTTP " + code + " khi gọi " + url);
-  },
+   async fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Fetch failed");
+  return await res.json();
+},
+
 
   // =======================
   // PARSE DỮ LIỆU API
