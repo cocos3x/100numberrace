@@ -1674,6 +1674,7 @@ export const  LodeOnline = {
 
   // ====== MAIN ======
   run: function () {
+    console.log("hello=====");
      resetLog();        
     this.lines = [];
     this.copy  = "xoso";
