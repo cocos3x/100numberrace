@@ -1669,6 +1669,8 @@ export const  LodeOnline = {
 
   flushToLog: function () {
     var combined = this.lines.join("\n");
+    console.log("combined");
+    console.log(combined);
     Logger.log(combined);
   },
 
