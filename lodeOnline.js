@@ -1684,7 +1684,7 @@ export const  LodeOnline = {
  
       console.log("============================================1");
       var dataGoc = await this.fetchJson(this.url);
-      console.log("============================================2");
+      console.log("============================================2"+ JSON.stringify(dataGoc));
       var issueList = this.ensureIssueList(dataGoc);
 
       // Lấy 10 ngày gần nhất từ url2
