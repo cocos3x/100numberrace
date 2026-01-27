@@ -2231,7 +2231,7 @@ console.log(
   // HÀM LẤY 10 NGÀY GẦN NHẤT
   // =======================
   lay10ngaygannhat: async function () {
-    Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...zzz");
+    Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...zzz3");
     var data = await this.fetchJson(this.url2);
     var issueList = this.ensureIssueLis2t(data);
     return issueList;
