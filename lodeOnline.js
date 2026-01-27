@@ -1650,7 +1650,7 @@ const nhipMaxCount = nhipArr.filter(x => x === nhipMax).length;
 // =======================
 // CẤU HÌNH & LOGIC CHÍNH
 // =======================
-var LodeOnline = {
+export const  LodeOnline = {
   // API gốc
   url:  "https://xoso188.net/api/front/open/lottery/history/low/all/game?page=1&pageSize=1000&gameCode=miba",
   url2: "https://xoso188.net/api/front/open/lottery/history/list/game?limitNum=10&gameCode=miba",
