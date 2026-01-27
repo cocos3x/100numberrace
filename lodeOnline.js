@@ -1688,7 +1688,7 @@ export const  LodeOnline = {
       var issueList = this.ensureIssueList(dataGoc);
 
       // Lấy 10 ngày gần nhất từ url2
-      var history2 = this.lay10ngaygannhat();
+      var history2 = await this.lay10ngaygannhat();
 
       // Ghép thêm các bản ghi mới hơn
       var arzz = [];
@@ -2230,9 +2230,9 @@ console.log(
   // =======================
   // HÀM LẤY 10 NGÀY GẦN NHẤT
   // =======================
-  lay10ngaygannhat: function () {
+  lay10ngaygannhat: async function () {
     Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...");
-    var data = this.fetchJson(this.url2);
+    var data = await this.fetchJson(this.url2);
     var issueList = this.ensureIssueLis2t(data);
     return issueList;
   },
