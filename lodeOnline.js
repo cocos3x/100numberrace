@@ -1713,7 +1713,7 @@ export const  LodeOnline = {
 var params = { recentWindow: 30, minSamples: 5 };
 Logger.log("Lô ngắn ngày");
   var s = this.streakSummary2(listLo, params);
-  this.addLine("🎯 2 2số đang chơi: " + (s.currentPick.length ? s.currentPick.join(", ") : "Không có"));
+  console.log("🎯 2 2số đang chơi: " + (s.currentPick.length ? s.currentPick.join(", ") : "Không có"));
   this.addLine("📈 Dây hiện tại: " + s.current);
   this.addLine("🔥 Max WIN: " + s.maxWin);
  this.addLine("❄️ Max LOSS: " + s.maxLoss);
