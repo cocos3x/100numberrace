@@ -14,7 +14,7 @@ function getLog() {
 }
 
 /* AUTO-CONVERTED FROM GOOGLE APPS SCRIPT (.gs) */
-const Logger = { log: (...a)=>log(...a) };
+const Logger = { log: (...a)=>console.log(...a) };
 const Utilities = {
   formatDate(d,t,f){
     if(f==="u"){ const x=new Date(d).getDay(); return x===0?"7":String(x); }
