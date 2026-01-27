@@ -146,12 +146,16 @@ const LodeOnline = {
   // ENTRY RUN
   // =======================
   run: function () {
+    try {
     this.lines = [];
     this.log("=== LODE ONLINE RUN ===");
-    // demo
-    const demo = [12, 34, 56, 78];
-    this.copy = this.formatCopy(demo);
-    this.log("DATA: " + this.formatArray(demo));
+
+    // 👇 code gốc của bạn ở đây
+
+  } catch (e) {
+    this.log("❌ ERROR: " + e.message);
+    this.log(e.stack);
+  }
   }
 };
 
