@@ -1682,9 +1682,9 @@ export const  LodeOnline = {
     this.copy  = "xoso";
 
     try {
-      Logger.log("============================================1");
+      console.log("============================================1");
       var dataGoc = this.fetchJson(this.url);
-      Logger.log("============================================2");
+      console.log("============================================2");
       var issueList = this.ensureIssueList(dataGoc);
 
       // Lấy 10 ngày gần nhất từ url2
@@ -1708,7 +1708,7 @@ export const  LodeOnline = {
 //  this.logAllRules(issueList);
 
       // Logger.log("History length = " + history.length);
-     //  Logger.log(history);
+       console.log(history);
        var listLo = this.extractHistoryLo(issueList);
 var params = { recentWindow: 30, minSamples: 5 };
 Logger.log("Lô ngắn ngày");
