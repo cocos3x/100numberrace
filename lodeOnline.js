@@ -765,7 +765,7 @@ function analyzeGroups3(days) {
       currentMiss++;
     }
 
-    // ===== 2) Tính toàn bộ dây miss =====
+    // ===== 2) Tính toàn bộ dây miss (duyệt đúng thứ tự: cũ→mới) =====
     const gaps = [];
     let run = 0;
 
@@ -1651,9 +1651,8 @@ const nhipMaxCount = nhipArr.filter(x => x === nhipMax).length;
 // CẤU HÌNH & LOGIC CHÍNH
 // =======================
 export const  LodeOnline = {
-  // API gốc
-  url:  "https://xoso188.net/api/front/open/lottery/history/low/all/game?page=1&pageSize=1000&gameCode=miba",
-  url2: "https://xoso188.net/api/front/open/lottery/history/list/game?limitNum=10&gameCode=miba",
+  // API mới từ khiemdoan/vietnam-lottery-xsmb-analysis
+  url: "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb-2-digits.json",
 
   lines: [],
   copy: "xoso",
@@ -1664,6 +1663,7 @@ export const  LodeOnline = {
                           copy33  : "xoso",
 
   addLine: function (text) {
+    console.log("addLine called with: " + text);
     this.lines.push(text);
   },
 
@@ -1676,40 +1676,24 @@ export const  LodeOnline = {
 
   // ====== MAIN ======
    run: async function () {
+    console.log("run: STARTING...");
     console.log("hello=====2");
-    //  resetLog();        
     this.lines = [];
     this.copy  = "xoso";
 
- 
       console.log("============================================1");
       var dataGoc = await this.fetchJson(this.url);
-      console.log("============================================2"+ JSON.stringify(dataGoc));
-      var issueList = this.ensureIssueList(dataGoc);
+      console.log("============================================2 data length: " + (dataGoc ? dataGoc.length : 0));
 
-      // Lấy 10 ngày gần nhất từ url2
-      var history2 = await this.lay10ngaygannhat();
-
-      // Ghép thêm các bản ghi mới hơn
-      var arzz = [];
-      for (var i = 0; i < history2.length; i++) {
-        if (history2[i]["openTimeStamp"] > issueList[0]["openTimeStamp"]) {
-          arzz.push(history2[i]);
-        }
-      }
-      // chèn lên đầu
-      if (arzz.length > 0) {
-        issueList.unshift.apply(issueList, arzz);
-      }
+      // Lấy 1000 ngày gần nhất, sắp xếp theo ngày giảm dần (mới nhất trước)
+      var issueList = this.parseNewApiData(dataGoc);
 
       var history = this.extractHistory(issueList);
-
-// var historyT = this.extractHistoryObject(issueList);
-//  this.logAllRules(issueList);
-
-      // Logger.log("History length = " + history.length);
        console.log(history);
        var listLo = this.extractHistoryLo(issueList);
+       this.predictLo(listLo);
+       this.backtestLoFormulas(listLo);
+
 var params = { recentWindow: 30, minSamples: 5 };
 Logger.log("Lô ngắn ngày");
   var s = this.streakSummary2(listLo, params);
@@ -1778,6 +1762,9 @@ var zzz = this.top5DayKepChuaVe(history);
     let mark = (d === zzz.dayHienTai[0]) ? ' <-- DÂY HIỆN TẠI' : '';
     this.addLine(`#${i + 1}: ${d} ngày${mark}`);
   });
+
+  // Soi cau de V2
+  this.soiCauDeV2(history);
   
 // console.log("=== Thống kê lô (current/max * 100) ===");
 // stats.forEach(s => {
@@ -1802,7 +1789,9 @@ var zzz = this.top5DayKepChuaVe(history);
 
 console.log("=== Thống kê bộ đề 9 số  ===");
 this.addLine("=== Thống kê bộ đề 9 số  ===");
- const stats33 = analyzeGroups3(history);
+// Debug: show last 15 days of history
+console.log("15 ngày gần nhất:", history.slice(-15));
+const stats33 = analyzeGroups3(history);
 
   // Sắp xếp tập theo maxMiss giảm dần
   stats33.sort((a, b) => b.currentMiss/b.maxMiss - a.currentMiss/a.maxMiss);
@@ -2222,19 +2211,9 @@ console.log(
 
       // Logger.log("✅ Xong: đã sort theo % và log 2 mảng 50 số cho từng công thức.");
       Logger.log("Chuỗi copy (50 số): " + this.copy);
+      console.log("run: COMPLETED at the end");
 
-    
-      return getLog();  
-  },
-
-  // =======================
-  // HÀM LẤY 10 NGÀY GẦN NHẤT
-  // =======================
-  lay10ngaygannhat: async function () {
-    Logger.log("lay10ngaygannhat: gọi API 10 ngày gần nhất...zzz3");
-    var data = await this.fetchJson(this.url2);
-    var issueList = this.ensureIssueLis2t(data);
-    return issueList;
+      return this.lines.join("\n");  
   },
 
   // =======================
@@ -2246,20 +2225,15 @@ console.log(
   return await res.json();
 },
 
-
   // =======================
-  // PARSE DỮ LIỆU API
+  // PARSE DỮ LIỆU TỪ API MỚI
+  // Lấy 1000 ngày cuối, giữ nguyên thứ tự từ API
   // =======================
-  ensureIssueList: function (data) {
-    if (data && data.rows) return data.rows;
-    if (Array.isArray(data)) return data;
-    throw new Error("Không tìm thấy issueList (rows)");
-  },
-
-  ensureIssueLis2t: function (data) {
-    if (data && data.t && data.t.issueList) return data.t.issueList;
-    if (Array.isArray(data)) return data;
-    throw new Error("Không tìm thấy issueList trong data.t.issueList");
+  parseNewApiData: function (data) {
+    if (!data || !Array.isArray(data)) {
+      throw new Error("Invalid data format from API");
+    }
+    return data.slice(-1000);
   },
   shouldBet:function(currentStreak, maxStreak) {
   if (!currentStreak || !maxStreak) return null;
@@ -3331,16 +3305,14 @@ logResult: function(stats, ruleName) {
   for (var i = 0; i < issueList.length; i++) {
     var it = issueList[i];
     try {
-      var data = JSON.parse(it.detail);
-      var first = data[0].replace(/\D/g, "");
-      var number = parseInt(first.slice(-2), 10);
-
-      if (!isNaN(number)) {
+      // Lấy 2 số cuối của giải đặc biệt (đề)
+      var number = this.getLast2Digits(it.special);
+      if (number !== null) {
         arr.push({
           value: number,
-          group: this.classify50(number, rule),   // ← dùng this
-          weekday: this.getWeekdayVN(it.openTimeStamp),
-          timestamp: it.openTimeStamp
+          group: this.classify50(number, rule),
+          weekday: this.getWeekdayFromDate(it.date),
+          timestamp: new Date(it.date).getTime()
         });
       }
     } catch (e) {
@@ -3495,27 +3467,33 @@ logResult: function(stats, ruleName) {
  weekdayLabel:function(d) {
   return d === 1 ? "CN" : "T" + d;
 },
+  // Lấy 2 số cuối từ số nguyên (0-99)
+  getLast2Digits: function (num) {
+    if (typeof num === 'number') {
+      return num % 100;
+    }
+    if (typeof num === 'string') {
+      var n = parseInt(num, 10);
+      return isNaN(n) ? null : n % 100;
+    }
+    return null;
+  },
+
+  // Lấy thứ trong tuần từ date string
+  getWeekdayFromDate: function (dateStr) {
+    var d = new Date(dateStr);
+    var iso = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    return iso === 0 ? 7 : iso; // 1=CN, 2=T2, ..., 7=T7
+  },
+
   extractHistory: function (issueList) {
     var arr = [];
     for (var i = 0; i < issueList.length; i++) {
       var it = issueList[i];
-      try {
-        var data = JSON.parse(it.detail);
-        var first = data[0];
-
-        // loại ký tự không phải số
-        first = first.replace(/\D/g, "");
-
-        // lấy 2 số cuối
-        var last2 = first.slice(-2);
-
-        // chuyển thành số
-        var result = parseInt(last2, 10);
-        if (!isNaN(result)) {
-          arr.push(result);
-        }
-      } catch (e) {
-        // bỏ qua lỗi 1 item
+      // Lấy 2 số cuối của giải đặc biệt (đề)
+      var result = this.getLast2Digits(it.special);
+      if (result !== null) {
+        arr.push(result);
       }
     }
     return arr;
@@ -3533,79 +3511,48 @@ logResult: function(stats, ruleName) {
   }
   return arr.join('');
 },
-  extractHistoryTheoGiaiNhatDacBiet: function (issueList) {
+  extractHistoryLo: function (issueList) {
     var arr = [];
     for (var i = 0; i < issueList.length; i++) {
       var it = issueList[i];
       try {
-        var data = JSON.parse(it.detail);
-   var zzzDoan  = reduceTo2Digits(data[0]+data[1]);
-    
-        var first = data[0];
-
-        // loại ký tự không phải số
-        first = first.replace(/\D/g, "");
-
-        // lấy 2 số cuối
-        var last2 = first.slice(-2);
-
-        // chuyển thành số
-        var result = parseInt(last2, 10);
-        var result2 = parseInt(zzzDoan, 10);
-        if (!isNaN(result) && !isNaN(result2)) {
-          arr.push(result);
-          []
-
-        }
+        // Trích xuất tất cả 2 chữ số từ các giải (lô)
+        var zz = this.extractLONew(it);
+        arr.push(zz);
       } catch (e) {
         // bỏ qua lỗi 1 item
       }
     }
     return arr;
   },
-extractLO:function (arr) {
-  // console.log("extractLO");
-    const seen = new Set();
-    const result = [];
 
-    arr.forEach(item => {
-        const parts = item.split(",");
+  // Trích xuất lô từ dữ liệu API mới
+  extractLONew: function (item) {
+    var seen = {};
+    var result = [];
 
-        parts.forEach(p => {
-            p = p.trim();
-            if (p.length >= 2) {
-                let last2 = p.slice(-2);
-                let num = parseInt(last2, 10);
-                if (isNaN(num)) num = 0;
+    // Danh sách tất cả các giải
+    var prizes = [
+      item.prize1,
+      item.prize2_1, item.prize2_2,
+      item.prize3_1, item.prize3_2, item.prize3_3, item.prize3_4, item.prize3_5, item.prize3_6,
+      item.prize4_1, item.prize4_2, item.prize4_3, item.prize4_4,
+      item.prize5_1, item.prize5_2, item.prize5_3, item.prize5_4, item.prize5_5, item.prize5_6,
+      item.prize6_1, item.prize6_2, item.prize6_3,
+      item.prize7_1, item.prize7_2, item.prize7_3, item.prize7_4
+    ];
 
-                if (!seen.has(num)) {
-                    seen.add(num);
-                    result.push(num);
-                }
-            }
-        });
+    prizes.forEach(function(prize) {
+      if (prize !== undefined && prize !== null) {
+        var num = prize % 100; // Lấy 2 số cuối
+        if (!seen[num]) {
+          seen[num] = true;
+          result.push(num);
+        }
+      }
     });
 
     return result;
-},
-  extractHistoryLo: function (issueList) {
-    var arr = [];
-    for (var i = 0; i < issueList.length; i++) {
-      var it = issueList[i];
-      try {
-           
-        var zz  = this.extractLO( JSON.parse(it.detail));
-
-    
-       
-        // if (!isNaN(zz)) {
-          arr.push(zz);
-        // }
-      } catch (e) {
-        // bỏ qua lỗi 1 item
-      }
-    }
-    return arr;
   },
 
   predictNextNumber: function (history, opt) {
@@ -3886,28 +3833,7 @@ analyzePredictionArray: function (A) {
 
   return out;
 },
-   
-   extractHistoryLoDacbiet: function (issueList) {
-    var arr = [];
-    for (var i = 0; i < issueList.length-1; i++) {
-      var it = issueList[i];
-      try {
-           var data = JSON.parse(it.detail);
-   var zzzDoan  = this.reduceTo2Digits(data[0]+data[1]);
-        var zz  = this.extractLO( JSON.parse(it.detail));
 
-        var temp = [];
-        temp.push(parseInt(zzzDoan, 10));
-        temp.push(zz);
-        // if (!isNaN(zz)) {
-          arr.push(temp);
-        // }
-      } catch (e) {
-        // bỏ qua lỗi 1 item
-      }
-    }
-    return arr;
-  },
    top5DayKepChuaVe:function(data) {
 
  let days = [];
@@ -4625,6 +4551,1573 @@ analyzePredictionArray: function (A) {
 
     picks.sort(function (a, b) { return b.score - a.score; });
     return picks.slice(0, k);
+  },
+
+  // =======================
+  // DỰ ĐOÁN LÔ - SOI CẦU THEO NHỊP, TẦN SỐ
+  // =======================
+  predictLo: function(listLo) {
+    var self = this;
+    self.addLine("===== DU DOAN LO =====");
+
+    var chrono = listLo.slice().reverse();
+
+    var windows = [
+      { name: "1 THANG", days: 30 },
+      { name: "2 THANG", days: 60 },
+      { name: "3 THANG", days: 90 }
+    ];
+
+    windows.forEach(function(win) {
+      var data = chrono.slice(0, win.days);
+      self.addLine("");
+      self.addLine("--- " + win.name + " (" + data.length + " ngay) ---");
+
+      var freq = new Array(100);
+      var lastSeen = new Array(100);
+      for (var i = 0; i < 100; i++) {
+        freq[i] = 0;
+        lastSeen[i] = -1;
+      }
+
+      for (var d = 0; d < data.length; d++) {
+        var dayArr = data[d];
+        for (var j = 0; j < dayArr.length; j++) {
+          var n = dayArr[j];
+          freq[n]++;
+        }
+      }
+
+      var N = data.length;
+      for (var n2 = 0; n2 < 100; n2++) {
+        for (var d2 = N - 1; d2 >= 0; d2--) {
+          if (data[d2].indexOf(n2) !== -1) {
+            lastSeen[n2] = N - 1 - d2;
+            break;
+          }
+        }
+        if (lastSeen[n2] === -1) {
+          lastSeen[n2] = N;
+        }
+      }
+
+      var maxFreq = 1;
+      for (var i2 = 0; i2 < 100; i2++) {
+        if (freq[i2] > maxFreq) maxFreq = freq[i2];
+      }
+
+      var scores = [];
+
+      for (var n3 = 0; n3 < 100; n3++) {
+        if (lastSeen[n3] > 5) continue;
+
+        var freqScore = (freq[n3] / maxFreq) * 30;
+        var gapScore = Math.min(lastSeen[n3] / 10, 1) * 40;
+        var normScore = 30;
+
+        var totalScore = freqScore + gapScore + normScore;
+        scores.push({
+          n: n3,
+          score: totalScore,
+          freq: freq[n3],
+          gap: lastSeen[n3]
+        });
+      }
+
+      scores.sort(function(a, b) { return b.score - a.score; });
+
+      var top10 = scores.slice(0, 10);
+
+      if (top10.length >= 2) {
+        var pick1 = top10[0];
+        var pick2 = top10[1];
+
+        self.addLine("1 CON: " + String(pick1.n).padStart(2, "0") + " (freq " + pick1.freq + ", gap " + pick1.gap + ")");
+        self.addLine("2 CON: " +
+          String(pick1.n).padStart(2, "0") + " (" + pick1.freq + ", gap " + pick1.gap + ")" +
+          ", " +
+          String(pick2.n).padStart(2, "0") + " (" + pick2.freq + ", gap " + pick2.gap + ")");
+
+        self.addLine("Top 10:");
+        top10.forEach(function(s, idx) {
+          self.addLine("  " + (idx + 1) + ". " + String(s.n).padStart(2, "0") +
+            " | freq: " + s.freq + " | gap: " + s.gap + " | score: " + s.score.toFixed(1));
+        });
+      }
+
+      var totalNumbers = scores.length;
+      var khanNumbers = 100 - totalNumbers;
+      var sumFreq = 0;
+      for (var i3 = 0; i3 < scores.length; i3++) {
+        sumFreq += scores[i3].freq;
+      }
+      var avgFreq = totalNumbers > 0 ? (sumFreq / totalNumbers).toFixed(1) : 0;
+
+      self.addLine("Tong: " + totalNumbers + " so (khan >5 ngay: " + khanNumbers + ")");
+      self.addLine("Tan so TB: " + avgFreq + " lan");
+    });
+  },
+
+  // =======================
+  // SOI CAU DE - TIM CONG THUC THEO NHIP, CHU KY
+  // =======================
+  soiCauDeV2: function(history) {
+    var self = this;
+    self.addLine("");
+    self.addLine("===== SOI CAU DE V2 - NHIP & CHU KY =====");
+
+    // Chuan hoa history
+    var matrix = [];
+    for (var i = 0; i < history.length; i++) {
+      var day = history[i];
+      if (typeof day === 'number') {
+        matrix.push(day % 100);
+      } else if (typeof day === 'object' && day.special !== undefined) {
+        var last2 = self.getLast2Digits(day.special);
+        if (last2 !== null) matrix.push(last2);
+      }
+    }
+
+    // Hien thi 5 so cuoi
+    var last5 = matrix.slice(-5);
+    self.addLine("5 so cuoi: " + last5.map(function(n) { return String(n).padStart(2, '0'); }).join('-'));
+
+    // Cac cong thuc theo nhip/chu ky
+    var formulas = [
+      { name: "Chu so cuoi", check: self.cauChuSoCuoi, pred: self.predChuSoCuoi },
+      { name: "Chu so dau", check: self.cauChuSoDau, pred: self.predChuSoDau },
+      { name: "Tong 2 so", check: self.cauTong2So, pred: self.predTong2So },
+      { name: "Hieu 2 so", check: self.cauHieu2So, pred: self.predHieu2So },
+      { name: "So nguyen to", check: self.cauSoNguyenTo, pred: self.predSoNguyenTo },
+      { name: "So chan/le", check: self.cauChanLe, pred: self.predChanLe },
+      { name: "Dua ve 1", check: self.cauDuaVe1, pred: self.predDuaVe1 },
+      { name: "Nhip +1", check: self.cauNhipCong1, pred: self.predNhipCong1 },
+      { name: "Nhip -1", check: self.cauNhipTru1, pred: self.predNhipTru1 },
+      { name: "Nhip +2", check: self.cauNhipCong2, pred: self.predNhipCong2 },
+      { name: "Bo 3", check: self.cauBo3, pred: self.predBo3 },
+      { name: "Bo 4", check: self.cauBo4, pred: self.predBo4 },
+      { name: "Lap lai", check: self.cauLapLai, pred: self.predLapLai },
+      { name: "Dao nguoc", check: self.cauDaoNguoc, pred: self.predDaoNguoc },
+      { name: "Tong chan", check: self.cauTongChan, pred: self.predTongChan }
+    ];
+
+    // BACKTEST 35 ngay
+    self.addLine("");
+    self.addLine("=== BACKTEST 35 NGAY ===");
+
+    var formulaStats = {};
+    formulas.forEach(function(f) {
+      formulaStats[f.name] = { wins: 0, total: 0 };
+    });
+
+    var numTestDays = 35;
+    var results = [];
+
+    for (var testIdx = matrix.length - numTestDays - 1; testIdx < matrix.length - 1; testIdx++) {
+      // Lay data den ngay testIdx
+      var trainData = matrix.slice(0, testIdx + 1);
+
+      // Tim cau cua tung cong thuc
+      var dayResults = [];
+      var hasCau = false;
+
+      formulas.forEach(function(f) {
+        var cau = f.check(trainData);
+        if (cau && cau.valid) {
+          hasCau = true;
+          var prediction = f.pred(trainData, cau);
+          var actual = matrix[testIdx + 1];
+          var hit = prediction.indexOf(actual) !== -1;
+
+          formulaStats[f.name].total++;
+          if (hit) formulaStats[f.name].wins++;
+
+          dayResults.push({
+            formula: f.name,
+            prediction: prediction,
+            actual: actual,
+            hit: hit
+          });
+        }
+      });
+
+      // Giao cua tat ca cau
+      var giao = self.calcIntersectionFromResults(dayResults);
+      var actual = matrix[testIdx + 1];
+      var giaoHit = giao.indexOf(actual) !== -1;
+
+      results.push({
+        ngay: testIdx + 1,
+        cau: dayResults.length,
+        giao: giao,
+        actual: actual,
+        hit: giaoHit
+      });
+    }
+
+    // Hien thi chi tiet
+    results.forEach(function(r, i) {
+      self.addLine((i + 1) + ". Ngay " + r.ngay + ": " + r.cau + " cau -> Giao [" + r.giao.join(',') + "] -> " +
+        String(r.actual).padStart(2, '0') + " [" + (r.hit ? "TRUNG" : "TRUOT") + "]");
+    });
+
+    // Tong ket
+    var totalWins = results.filter(function(r) { return r.hit; }).length;
+    self.addLine("");
+    self.addLine("=== GIAO TAT CA CAU ===");
+    self.addLine("Tong trung: " + totalWins + "/" + results.length + " = " + (totalWins / results.length * 100).toFixed(1) + "%");
+
+    // Bang xep cong thuc theo ty le trung
+    self.addLine("");
+    self.addLine("=== XEP HANG CONG THUC ===");
+    var ranked = Object.keys(formulaStats).map(function(name) {
+      var s = formulaStats[name];
+      return {
+        name: name,
+        winRate: s.total > 0 ? (s.wins / s.total * 100) : 0,
+        wins: s.wins,
+        total: s.total
+      };
+    });
+    ranked.sort(function(a, b) { return b.winRate - a.winRate; });
+
+    ranked.forEach(function(r, i) {
+      self.addLine((i + 1) + ". " + r.name + ": " + r.winRate.toFixed(1) + "% (" + r.wins + "/" + r.total + ")");
+    });
+
+    // Du doan ngay mai
+    self.addLine("");
+    self.addLine("=== DU DOAN NGAY MAI ===");
+    var trainData = matrix;
+    var bestFormulas = ranked.filter(function(r) { return r.total >= 10; }).slice(0, 5);
+
+    var predictions = [];
+    bestFormulas.forEach(function(f) {
+      formulas.forEach(function(formula) {
+        if (formula.name === f.name) {
+          var cau = formula.check(trainData);
+          if (cau && cau.valid) {
+            var pred = formula.pred(trainData, cau);
+            predictions.push(pred);
+          }
+        }
+      });
+    });
+
+    var finalGiao = predictions.length > 0 ? self.calcIntersectionFromArrays(predictions) : [];
+    self.addLine("Cong thuc tot: " + bestFormulas.map(function(f) { return f.name; }).join(', '));
+    self.addLine("So de danh: " + (finalGiao.length > 0 ? finalGiao.join(', ') : "Khong co giao"));
+
+    return { ranked: ranked, prediction: finalGiao };
+  },
+
+  // Tinh giao tu mang ket qua
+  calcIntersectionFromResults: function(results) {
+    if (results.length === 0) return [];
+    var intersection = results[0].prediction.slice();
+    for (var i = 1; i < results.length; i++) {
+      intersection = intersection.filter(function(n) {
+        return results[i].prediction.indexOf(n) !== -1;
+      });
+    }
+    return intersection;
+  },
+
+  // Tinh giao tu mang mang
+  calcIntersectionFromArrays: function(arrays) {
+    if (arrays.length === 0) return [];
+    var intersection = arrays[0].slice();
+    for (var i = 1; i < arrays.length; i++) {
+      intersection = intersection.filter(function(n) {
+        return arrays[i].indexOf(n) !== -1;
+      });
+    }
+    return intersection;
+  },
+
+  // === CAC HAM KIEM TRA CAU ===
+
+  cauChuSoCuoi: function(data) {
+    var last = data[data.length - 1];
+    var lastDigit = last % 10;
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      if (data[i] % 10 === lastDigit) break;
+    }
+    return { valid: count >= 3, value: lastDigit };
+  },
+
+  predChuSoCuoi: function(data, cau) {
+    var predictions = [];
+    var lastDigit = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      if (data[i] % 10 === lastDigit) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauChuSoDau: function(data) {
+    var last = data[data.length - 1];
+    var firstDigit = Math.floor(last / 10);
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      if (Math.floor(data[i] / 10) === firstDigit) break;
+    }
+    return { valid: count >= 3, value: firstDigit };
+  },
+
+  predChuSoDau: function(data, cau) {
+    var predictions = [];
+    var firstDigit = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      if (Math.floor(data[i] / 10) === firstDigit) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauTong2So: function(data) {
+    var last = data[data.length - 1];
+    var tong = Math.floor(last / 10) + (last % 10);
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if (t === tong) break;
+    }
+    return { valid: count >= 3, value: tong };
+  },
+
+  predTong2So: function(data, cau) {
+    var predictions = [];
+    var tong = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if (t === tong) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauHieu2So: function(data) {
+    var last = data[data.length - 1];
+    var hieu = Math.abs(Math.floor(last / 10) - (last % 10));
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      var h = Math.abs(Math.floor(data[i] / 10) - (data[i] % 10));
+      if (h === hieu) break;
+    }
+    return { valid: count >= 3, value: hieu };
+  },
+
+  predHieu2So: function(data, cau) {
+    var predictions = [];
+    var hieu = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      var h = Math.abs(Math.floor(data[i] / 10) - (data[i] % 10));
+      if (h === hieu) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauSoNguyenTo: function(data) {
+    var last = data[data.length - 1];
+    var isPrime = function(n) {
+      if (n < 2) return false;
+      if (n === 2) return true;
+      if (n % 2 === 0) return false;
+      for (var i = 3; i <= Math.sqrt(n); i += 2) {
+        if (n % i === 0) return false;
+      }
+      return true;
+    };
+    var prime = isPrime(last);
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      if (isPrime(data[i]) === prime) break;
+    }
+    return { valid: count >= 3, value: prime };
+  },
+
+  predSoNguyenTo: function(data, cau) {
+    var predictions = [];
+    var prime = cau.value;
+    var isPrime = function(n) {
+      if (n < 2) return false;
+      if (n === 2) return true;
+      if (n % 2 === 0) return false;
+      for (var i = 3; i <= Math.sqrt(n); i += 2) {
+        if (n % i === 0) return false;
+      }
+      return true;
+    };
+    for (var i = data.length - 2; i >= 0; i--) {
+      if (isPrime(data[i]) === prime) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauChanLe: function(data) {
+    var last = data[data.length - 1];
+    var chan = last % 2 === 0;
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      if ((data[i] % 2 === 0) === chan) break;
+    }
+    return { valid: count >= 3, value: chan };
+  },
+
+  predChanLe: function(data, cau) {
+    var predictions = [];
+    var chan = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      if ((data[i] % 2 === 0) === chan) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauDuaVe1: function(data) {
+    var last = data[data.length - 1];
+    var tong = Math.floor(last / 10) + (last % 10);
+    var du = tong % 10;
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if (t % 10 === du) break;
+    }
+    return { valid: count >= 3, value: du };
+  },
+
+  predDuaVe1: function(data, cau) {
+    var predictions = [];
+    var du = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if (t % 10 === du) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauNhipCong1: function(data) {
+    if (data.length < 3) return { valid: false };
+    var last = data[data.length - 1];
+    var prev = data[data.length - 2];
+    var diff = last - prev;
+    var count = 0;
+    for (var i = data.length - 3; i >= 0 && count < 5; i--, count++) {
+      if (data[i + 1] - data[i] !== diff) break;
+    }
+    return { valid: count >= 2, value: diff };
+  },
+
+  predNhipCong1: function(data, cau) {
+    var last = data[data.length - 1];
+    var next = (last + cau.value) % 100;
+    return [next];
+  },
+
+  cauNhipTru1: function(data) {
+    if (data.length < 3) return { valid: false };
+    var last = data[data.length - 1];
+    var prev = data[data.length - 2];
+    var diff = prev - last;
+    var count = 0;
+    for (var i = data.length - 3; i >= 0 && count < 5; i--, count++) {
+      if (data[i] - data[i + 1] !== diff) break;
+    }
+    return { valid: count >= 2, value: diff };
+  },
+
+  predNhipTru1: function(data, cau) {
+    var last = data[data.length - 1];
+    var next = (last - cau.value + 100) % 100;
+    return [next];
+  },
+
+  cauNhipCong2: function(data) {
+    if (data.length < 4) return { valid: false };
+    var d1 = data[data.length - 1] - data[data.length - 2];
+    var d2 = data[data.length - 2] - data[data.length - 3];
+    var count = 0;
+    for (var i = data.length - 4; i >= 0 && count < 5; i--, count++) {
+      if (data[i + 1] - data[i] !== d1) break;
+    }
+    return { valid: count >= 2 && d1 === d2, value: d1 };
+  },
+
+  predNhipCong2: function(data, cau) {
+    var last = data[data.length - 1];
+    return [(last + cau.value) % 100];
+  },
+
+  cauBo3: function(data) {
+    if (data.length < 4) return { valid: false };
+    var last3 = [data[data.length - 3], data[data.length - 2], data[data.length - 1]];
+    var count = 0;
+    for (var i = data.length - 6; i >= 0 && count < 3; i--, count++) {
+      if (data[i] === last3[0] && data[i + 1] === last3[1] && data[i + 2] === last3[2]) {
+        return { valid: true, value: last3 };
+      }
+    }
+    return { valid: false };
+  },
+
+  predBo3: function(data, cau) {
+    var predictions = [];
+    var last3 = cau.value;
+    for (var i = data.length - 6; i >= 0; i--) {
+      if (data[i] === last3[0] && data[i + 1] === last3[1] && data[i + 2] === last3[2]) {
+        if (i + 3 < data.length) {
+          var next = data[i + 3];
+          if (predictions.indexOf(next) === -1) predictions.push(next);
+        }
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauBo4: function(data) {
+    if (data.length < 5) return { valid: false };
+    var last4 = [data[data.length - 4], data[data.length - 3], data[data.length - 2], data[data.length - 1]];
+    for (var i = data.length - 8; i >= 0; i--) {
+      if (data[i] === last4[0] && data[i + 1] === last4[1] &&
+          data[i + 2] === last4[2] && data[i + 3] === last4[3]) {
+        return { valid: true, value: last4 };
+      }
+    }
+    return { valid: false };
+  },
+
+  predBo4: function(data, cau) {
+    var predictions = [];
+    var last4 = cau.value;
+    for (var i = data.length - 8; i >= 0; i--) {
+      if (data[i] === last4[0] && data[i + 1] === last4[1] &&
+          data[i + 2] === last4[2] && data[i + 3] === last4[3]) {
+        if (i + 4 < data.length) {
+          var next = data[i + 4];
+          if (predictions.indexOf(next) === -1) predictions.push(next);
+        }
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauLapLai: function(data) {
+    if (data.length < 3) return { valid: false };
+    var last = data[data.length - 1];
+    var prev = data[data.length - 2];
+    if (last === prev) {
+      return { valid: true, value: 'lap' };
+    }
+    return { valid: false };
+  },
+
+  predLapLai: function(data, cau) {
+    var predictions = [];
+    for (var i = data.length - 3; i >= 0; i--) {
+      if (data[i] === data[i + 1]) {
+        if (i + 2 < data.length) {
+          var next = data[i + 2];
+          if (predictions.indexOf(next) === -1) predictions.push(next);
+        }
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauDaoNguoc: function(data) {
+    if (data.length < 2) return { valid: false };
+    var last = data[data.length - 1];
+    var dao = (last % 10) * 10 + Math.floor(last / 10);
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      var d = (data[i] % 10) * 10 + Math.floor(data[i] / 10);
+      if (d === dao) break;
+    }
+    return { valid: count >= 3, value: dao };
+  },
+
+  predDaoNguoc: function(data, cau) {
+    var predictions = [];
+    var dao = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      var d = (data[i] % 10) * 10 + Math.floor(data[i] / 10);
+      if (d === dao) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  cauTongChan: function(data) {
+    var last = data[data.length - 1];
+    var tong = Math.floor(last / 10) + (last % 10);
+    var chan = tong % 2 === 0;
+    var count = 0;
+    for (var i = data.length - 2; i >= 0 && count < 10; i--, count++) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if ((t % 2 === 0) === chan) break;
+    }
+    return { valid: count >= 3, value: chan };
+  },
+
+  predTongChan: function(data, cau) {
+    var predictions = [];
+    var chan = cau.value;
+    for (var i = data.length - 2; i >= 0; i--) {
+      var t = Math.floor(data[i] / 10) + (data[i] % 10);
+      if ((t % 2 === 0) === chan) {
+        var next = data[i + 1];
+        if (predictions.indexOf(next) === -1) predictions.push(next);
+      }
+    }
+    return predictions.slice(0, 5);
+  },
+
+  // Backtest cau de
+  backtestDeCau: function(matrix, cauList, numDays) {
+    var self = this;
+    var wins = 0;
+    var total = 0;
+    var details = [];
+
+    // Chi test numDays ngay cuoi (tru ngay hom nay)
+    var startIdx = matrix.length - numDays - 1; // bat dau tu ngay truoc do
+    var endIdx = matrix.length - 1; // ket thuc o ngay cuoi
+
+    for (var i = startIdx; i < endIdx; i++) {
+      // Lay 3 ngay truoc de tim cau
+      var prevDays = matrix.slice(Math.max(0, i - 50), i + 1);
+
+      // Tim cau voi du lieu den ngay i
+      var tempCauList = self.findDeCau(prevDays);
+
+      // Tinh giao
+      var pred = self.calcIntersection(tempCauList);
+      if (pred.length === 0 && tempCauList.length > 0) {
+        pred = tempCauList[0].pred.slice(0, 5);
+      }
+
+      // Lay ket qua ngay i+1 (ngay tiep theo)
+      var actual = matrix[i + 1];
+
+      // Kiem tra trung
+      var hit = pred.indexOf(actual) !== -1;
+      if (hit) wins++;
+      total++;
+
+      // Hien thi
+      var ngayTruoc = matrix[i];
+      details.push({
+        ngay: i + 1,
+        ngayTruoc: ngayTruoc,
+        duDoan: pred,
+        ketQua: actual,
+        trung: hit ? "TRUNG" : "TRUOT"
+      });
+    }
+
+    // Hien thi chi tiet
+    details.forEach(function(d, idx) {
+      self.addLine((idx + 1) + ". Ngay " + d.ngay + ": " + String(d.ngayTruoc).padStart(2, '0') + " -> " +
+        "Du doan [" + d.duDoan.join(',') + "] -> " +
+        "Ket qua: " + String(d.ketQua).padStart(2, '0') + " [" + d.trung + "]");
+    });
+
+    self.addLine("");
+    self.addLine("Tong: " + wins + "/" + total + " = " + (total > 0 ? (wins / total * 100).toFixed(1) : 0) + "%");
+  },
+
+  // Tim cac cau trong ma tran
+  findDeCau: function(matrix, days) {
+    var cauList = [];
+
+    // 1. Cau theo chu so cuoi (don vi)
+    cauList = cauList.concat(this.findLastDigitCau(matrix));
+
+    // 2. Cau theo chu so dau (chuc)
+    cauList = cauList.concat(this.findFirstDigitCau(matrix));
+
+    // 3. Cau theo tong 2 chu so
+    cauList = cauList.concat(this.findSumCau(matrix));
+
+    // 4. Cau theo tich 2 chu so
+    cauList = cauList.concat(this.findProductCau(matrix));
+
+    // 5. Cau theo hieu 2 chu so
+    cauList = cauList.concat(this.findDiffCau(matrix));
+
+    // 6. Cau theo chan/le
+    cauList = cauList.concat(this.findParityCau(matrix));
+
+    // 7. Cau theo nguyen to
+    cauList = cauList.concat(this.findPrimeCau(matrix));
+
+    // 8. Cau theo bo 3 so
+    cauList = cauList.concat(this.findBo3Cau(matrix));
+
+    // 9. Cau theo so lap
+    cauList = cauList.concat(this.findRepeatCau(matrix));
+
+    // 10. Cau theo day so
+    cauList = cauList.concat(this.findSequenceCau(matrix));
+
+    // 11. Cau theo so ngay chua ve
+    cauList = cauList.concat(this.findGapCau(matrix));
+
+    // Loc chi lay cau co do chinh xac >= 30% va du bao < 10 so
+    var filtered = cauList.filter(function(c) {
+      return c.accuracy >= 30 && c.pred.length > 0 && c.pred.length < 10;
+    });
+
+    // Sap xep theo do chinh xac
+    filtered.sort(function(a, b) { return b.accuracy - a.accuracy; });
+
+    // Lay toi da 15 cau
+    return filtered.slice(0, 15);
+  },
+
+  // Cau theo chu so cuoi
+  findLastDigitCau: function(matrix) {
+    var cauList = [];
+    for (var d = 0; d <= 9; d++) {
+      var pattern = [];
+      var predictions = [];
+      var hit = 0, total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        var lastDigit = matrix[i] % 10;
+        var next = matrix[i + 1];
+
+        if (lastDigit === d) {
+          var nextLast = next % 10;
+          pattern.push(d);
+          predictions.push(nextLast);
+          total++;
+
+          // Kiem tra co trung chu so cuoi khong
+          if (nextLast === d || (predictions.length > 1 && predictions[predictions.length - 2] === nextLast)) {
+            hit++;
+          }
+        }
+      }
+
+      if (total >= 5 && predictions.length > 0) {
+        // Dem tan suat xuat hien cua chu so cuoi tiep theo
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topDigits = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 5).map(Number);
+
+        var acc = (hit / total * 100);
+        cauList.push({
+          name: "Chu so cuoi = " + d,
+          rule: "Khi chu so cuoi = " + d + " -> chu so cuoi tiep theo",
+          pred: topDigits,
+          accuracy: acc,
+          hit: hit,
+          total: total
+        });
+      }
+    }
+    return cauList;
+  },
+
+  // Cau theo chu so dau
+  findFirstDigitCau: function(matrix) {
+    var cauList = [];
+    for (var d = 0; d <= 9; d++) {
+      var predictions = [];
+      var hit = 0, total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        var firstDigit = Math.floor(matrix[i] / 10);
+        var next = matrix[i + 1];
+
+        if (firstDigit === d) {
+          var nextFirst = Math.floor(next / 10);
+          predictions.push(nextFirst);
+          total++;
+
+          if (nextFirst === d) hit++;
+        }
+      }
+
+      if (total >= 5) {
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topDigits = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 5).map(Number);
+
+        var acc = (hit / total * 100);
+        cauList.push({
+          name: "Chu so dau = " + d,
+          rule: "Khi chu so dau = " + d + " -> chu so dau tiep theo",
+          pred: topDigits,
+          accuracy: acc,
+          hit: hit,
+          total: total
+        });
+      }
+    }
+    return cauList;
+  },
+
+  // Cau theo tong 2 chu so
+  findSumCau: function(matrix) {
+    var cauList = [];
+    for (var s = 0; s <= 18; s++) {
+      var predictions = [];
+      var hit = 0, total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        var sum = Math.floor(matrix[i] / 10) + (matrix[i] % 10);
+        var next = matrix[i + 1];
+
+        if (sum === s) {
+          var nextNum = next;
+          predictions.push(nextNum);
+          total++;
+
+          // Kiem tra co trung so nao khong
+          var nextSum = Math.floor(next / 10) + (next % 10);
+          if (nextSum === s) hit++;
+        }
+      }
+
+      if (total >= 5) {
+        // Lay cac so xuat hien nhieu nhat
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topNums = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+
+        var acc = (hit / total * 100);
+        cauList.push({
+          name: "Tong = " + s,
+          rule: "Khi tong 2 chu so = " + s + " -> so tiep theo",
+          pred: topNums,
+          accuracy: acc,
+          hit: hit,
+          total: total
+        });
+      }
+    }
+    return cauList;
+  },
+
+  // Cau theo tich 2 chu so
+  findProductCau: function(matrix) {
+    var cauList = [];
+    for (var p = 0; p <= 81; p++) {
+      var predictions = [];
+      var hit = 0, total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        var a = Math.floor(matrix[i] / 10);
+        var b = matrix[i] % 10;
+        var prod = a * b;
+        var next = matrix[i + 1];
+
+        if (prod === p) {
+          predictions.push(next);
+          total++;
+        }
+      }
+
+      if (total >= 5) {
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topNums = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+
+        var acc = (predictions.filter(function(x) { return freq[x] > 1; }).length / total * 100);
+        cauList.push({
+          name: "Tich = " + p,
+          rule: "Khi tich 2 chu so = " + p + " -> so tiep theo",
+          pred: topNums,
+          accuracy: acc,
+          hit: 0,
+          total: total
+        });
+      }
+    }
+    return cauList;
+  },
+
+  // Cau theo hieu 2 chu so
+  findDiffCau: function(matrix) {
+    var cauList = [];
+    for (var d = 0; d <= 9; d++) {
+      var predictions = [];
+      var total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        var a = Math.floor(matrix[i] / 10);
+        var b = matrix[i] % 10;
+        var diff = Math.abs(a - b);
+        var next = matrix[i + 1];
+
+        if (diff === d) {
+          predictions.push(next);
+          total++;
+        }
+      }
+
+      if (total >= 5) {
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topNums = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+
+        cauList.push({
+          name: "Hieu = " + d,
+          rule: "Khi hieu 2 chu so = " + d + " -> so tiep theo",
+          pred: topNums,
+          accuracy: (predictions.filter(function(x) { return freq[x] > 1; }).length / total * 100),
+          hit: 0,
+          total: total
+        });
+      }
+    }
+    return cauList;
+  },
+
+  // Cau theo chan/le
+  findParityCau: function(matrix) {
+    var cauList = [];
+    var cases = [
+      { name: "So chan", check: function(n) { return n % 2 === 0; } },
+      { name: "So le", check: function(n) { return n % 2 === 1; } }
+    ];
+
+    cases.forEach(function(c) {
+      var predictions = [];
+      var total = 0;
+
+      for (var i = 0; i < matrix.length - 1; i++) {
+        if (c.check(matrix[i])) {
+          predictions.push(matrix[i + 1]);
+          total++;
+        }
+      }
+
+      if (total >= 5) {
+        var freq = {};
+        predictions.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+
+        var topNums = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+
+        cauList.push({
+          name: c.name,
+          rule: "Khi so " + c.name.toLowerCase() + " -> so tiep theo",
+          pred: topNums,
+          accuracy: (predictions.filter(function(x) { return freq[x] > 1; }).length / total * 100),
+          hit: 0,
+          total: total
+        });
+      }
+    });
+    return cauList;
+  },
+
+  // Cau theo so nguyen to
+  findPrimeCau: function(matrix) {
+    var cauList = [];
+    var isPrime = function(n) {
+      if (n < 2) return false;
+      if (n === 2) return true;
+      if (n % 2 === 0) return false;
+      for (var i = 3; i <= Math.sqrt(n); i += 2) {
+        if (n % i === 0) return false;
+      }
+      return true;
+    };
+
+    var primes = [], composites = [];
+    for (var i = 0; i < matrix.length - 1; i++) {
+      if (isPrime(matrix[i])) {
+        primes.push(matrix[i + 1]);
+      } else {
+        composites.push(matrix[i + 1]);
+      }
+    }
+
+    if (primes.length >= 5) {
+      var freq = {};
+      primes.forEach(function(p) {
+        freq[p] = (freq[p] || 0) + 1;
+      });
+      var topPrimes = Object.keys(freq).sort(function(a, b) {
+        return freq[b] - freq[a];
+      }).slice(0, 7).map(Number);
+
+      cauList.push({
+        name: "So nguyen to",
+        rule: "Khi so nguyen to -> so tiep theo",
+        pred: topPrimes,
+        accuracy: 50,
+        hit: 0,
+        total: primes.length
+      });
+    }
+
+    if (composites.length >= 5) {
+      var freq = {};
+      composites.forEach(function(p) {
+        freq[p] = (freq[p] || 0) + 1;
+      });
+      var topComp = Object.keys(freq).sort(function(a, b) {
+        return freq[b] - freq[a];
+      }).slice(0, 7).map(Number);
+
+      cauList.push({
+        name: "So khong nguyen to",
+        rule: "Khi so khong nguyen to -> so tiep theo",
+        pred: topComp,
+        accuracy: 50,
+        hit: 0,
+        total: composites.length
+      });
+    }
+
+    return cauList;
+  },
+
+  // Cau theo bo 3 so
+  findBo3Cau: function(matrix) {
+    var cauList = [];
+    // Tim cac bo 3 so lien tiep
+    for (var start = 0; start < matrix.length - 3; start++) {
+      var bo3 = [matrix[start], matrix[start + 1], matrix[start + 2]];
+      var next = matrix[start + 3];
+
+      // Dem tan suat
+      var found = false;
+      for (var c = 0; c < cauList.length; c++) {
+        if (JSON.stringify(cauList[c].pattern) === JSON.stringify(bo3)) {
+          cauList[c].pred.push(next);
+          cauList[c].total++;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found && bo3[0] !== bo3[1] && bo3[1] !== bo3[2]) {
+        cauList.push({
+          name: "Bo 3: " + bo3.join('-'),
+          pattern: bo3,
+          rule: "Sau bo " + bo3.join('-') + " -> so tiep theo",
+          pred: [next],
+          accuracy: 0,
+          hit: 0,
+          total: 1
+        });
+      }
+    }
+
+    // Loc va tinh accuracy
+    cauList = cauList.filter(function(c) {
+      return c.total >= 3;
+    });
+
+    cauList.forEach(function(c) {
+      var freq = {};
+      c.pred.forEach(function(p) {
+        freq[p] = (freq[p] || 0) + 1;
+      });
+      c.pred = Object.keys(freq).sort(function(a, b) {
+        return freq[b] - freq[a];
+      }).slice(0, 7).map(Number);
+      c.accuracy = (freq[c.pred[0]] / c.total * 100);
+    });
+
+    return cauList;
+  },
+
+  // Cau theo so lap
+  findRepeatCau: function(matrix) {
+    var cauList = [];
+
+    for (var i = 2; i < matrix.length - 1; i++) {
+      // Kiem tra co lap lai 2-3 ngay
+      if (matrix[i] === matrix[i - 1] && matrix[i - 1] === matrix[i - 2]) {
+        // 3 ngay lap -> tim tiep
+        var next = matrix[i + 1];
+        var found = false;
+        for (var c = 0; c < cauList.length; c++) {
+          if (cauList[c].type === "3_lap") {
+            cauList[c].pred.push(next);
+            cauList[c].total++;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          cauList.push({
+            name: "3 ngay lap",
+            type: "3_lap",
+            rule: "Sau 3 ngay lap -> so tiep theo",
+            pred: [next],
+            accuracy: 0,
+            hit: 0,
+            total: 1
+          });
+        }
+      } else if (matrix[i] === matrix[i - 1]) {
+        // 2 ngay lap
+        var next = matrix[i + 1];
+        var found = false;
+        for (var c = 0; c < cauList.length; c++) {
+          if (cauList[c].type === "2_lap") {
+            cauList[c].pred.push(next);
+            cauList[c].total++;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          cauList.push({
+            name: "2 ngay lap",
+            type: "2_lap",
+            rule: "Sau 2 ngay lap -> so tiep theo",
+            pred: [next],
+            accuracy: 0,
+            hit: 0,
+            total: 1
+          });
+        }
+      }
+    }
+
+    cauList.forEach(function(c) {
+      if (c.total >= 3) {
+        var freq = {};
+        c.pred.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+        c.pred = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+        c.accuracy = (freq[c.pred[0]] / c.total * 100);
+      }
+    });
+
+    return cauList.filter(function(c) { return c.total >= 3; });
+  },
+
+  // Cau theo day so
+  findSequenceCau: function(matrix) {
+    var cauList = [];
+
+    for (var i = 2; i < matrix.length - 1; i++) {
+      var a = matrix[i - 2];
+      var b = matrix[i - 1];
+      var c = matrix[i];
+      var next = matrix[i + 1];
+
+      // Tinh hieu
+      var d1 = b - a;
+      var d2 = c - b;
+
+      // Kiem tra coi co quy luat cong/tru khong
+      if (d1 === d2 && Math.abs(d1) <= 5) {
+        // Co quy luat cong tru
+        var key = "cong_" + d1;
+        var found = false;
+        for (var c2 = 0; c2 < cauList.length; c2++) {
+          if (cauList[c2].type === key) {
+            cauList[c2].pred.push(next);
+            cauList[c2].total++;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          cauList.push({
+            name: "Day cong " + (d1 >= 0 ? "+" : "") + d1,
+            type: key,
+            rule: "Khi hieu = " + d1 + " -> so tiep theo",
+            pred: [next],
+            accuracy: 0,
+            hit: 0,
+            total: 1
+          });
+        }
+      }
+    }
+
+    cauList.forEach(function(c) {
+      if (c.total >= 3) {
+        var freq = {};
+        c.pred.forEach(function(p) {
+          freq[p] = (freq[p] || 0) + 1;
+        });
+        c.pred = Object.keys(freq).sort(function(a, b) {
+          return freq[b] - freq[a];
+        }).slice(0, 7).map(Number);
+        c.accuracy = (freq[c.pred[0]] / c.total * 100);
+      }
+    });
+
+    return cauList.filter(function(c) { return c.total >= 3; });
+  },
+
+  // Cau theo ngay chua ve (gap)
+  findGapCau: function(matrix) {
+    var cauList = [];
+    var lastSeen = {};
+    var gaps = [];
+
+    // Tinh gap cho moi so
+    for (var i = 0; i < matrix.length; i++) {
+      var num = matrix[i];
+      if (lastSeen[num] !== undefined) {
+        var gap = i - lastSeen[num];
+        gaps.push({ num: num, gap: gap, next: (i < matrix.length - 1 ? matrix[i + 1] : -1) });
+      }
+      lastSeen[num] = i;
+    }
+
+    // Nhom theo gap
+    for (var g = 1; g <= 10; g++) {
+      var group = gaps.filter(function(x) { return x.gap === g; });
+      if (group.length >= 5) {
+        var predictions = group.filter(function(x) { return x.next >= 0; }).map(function(x) { return x.next; });
+
+        if (predictions.length > 0) {
+          var freq = {};
+          predictions.forEach(function(p) {
+            freq[p] = (freq[p] || 0) + 1;
+          });
+
+          var topNums = Object.keys(freq).sort(function(a, b) {
+            return freq[b] - freq[a];
+          }).slice(0, 7).map(Number);
+
+          cauList.push({
+            name: "Gap = " + g,
+            rule: "Khi gap = " + g + " ngay -> so tiep theo",
+            pred: topNums,
+            accuracy: (predictions.filter(function(x) { return freq[x] > 1; }).length / predictions.length * 100),
+            hit: 0,
+            total: predictions.length
+          });
+        }
+      }
+    }
+
+    return cauList;
+  },
+
+  // Tinh giao cua cac cau
+  calcIntersection: function(cauList) {
+    if (cauList.length === 0) return [];
+
+    // Lay tap hop dau tien
+    var intersection = cauList[0].pred.slice();
+
+    // Giao voi tap hop con lai
+    for (var i = 1; i < cauList.length; i++) {
+      var nextSet = cauList[i].pred;
+      intersection = intersection.filter(function(n) {
+        return nextSet.indexOf(n) !== -1;
+      });
+    }
+
+    // Neu giao rong, lay tap hop cua cau co do chinh xac cao nhat
+    if (intersection.length === 0) {
+      return cauList[0].pred.slice(0, 5);
+    }
+
+    return intersection;
+  },
+
+  backtestLoFormulas: function(listLo) {
+    var self = this;
+    self.addLine("");
+    self.addLine("===== BACKTEST DU DOAN LO =====");
+
+    var chrono = listLo.slice().reverse();
+
+    var minDays = 100;
+    if (chrono.length < minDays) {
+      self.addLine("Can it nhat " + minDays + " ngay de backtest. Co " + chrono.length + " ngay.");
+      return;
+    }
+
+    var timeWindows = [
+      { name: "1 THANG", days: 30 },
+      { name: "2 THANG", days: 60 },
+      { name: "3 THANG", days: 90 }
+    ];
+
+    var formulas = [
+      { name: "Tan so + Gap", freqWeight: 40, gapWeight: 40, khanThreshold: 5 },
+      { name: "Tan so cao", freqWeight: 60, gapWeight: 20, khanThreshold: 5 },
+      { name: "Gap lon", freqWeight: 20, gapWeight: 60, khanThreshold: 5 },
+      { name: "Khan nang", freqWeight: 30, gapWeight: 50, khanThreshold: 7 },
+      { name: "Khan nhe", freqWeight: 40, gapWeight: 40, khanThreshold: 3 }
+    ];
+
+    timeWindows.forEach(function(tw) {
+      self.addLine("");
+      self.addLine("=== " + tw.name + " (" + tw.days + " ngay) ===");
+
+      // Test voi 2 con
+      self.addLine("");
+      self.addLine("--- Danh 2 CON ---");
+
+      var results2 = [];
+
+      formulas.forEach(function(formula) {
+        var result = self.backtestSingle(chrono, tw.days, formula, 2);
+        results2.push(result);
+      });
+
+      // Ngau nhien 2 con
+      var random2 = self.backtestRandom(chrono, tw.days, 2);
+      results2.push({ name: "Ngau nhien", winRate: random2.winRate, profit: random2.profit, wins: random2.wins, total: random2.total });
+
+      results2.sort(function(a, b) { return b.winRate - a.winRate; });
+
+      results2.forEach(function(r, i) {
+        var mark = i === 0 ? " *" : "";
+        self.addLine((i + 1) + ". " + r.name + mark + ": " + r.winRate.toFixed(2) + "% | LN: " + (r.profit >= 0 ? "+" : "") + r.profit + " (" + r.wins + "/" + r.total + ")");
+      });
+
+      // Test voi 1 con
+      self.addLine("");
+      self.addLine("--- Danh 1 CON ---");
+
+      var results1 = [];
+
+      formulas.forEach(function(formula) {
+        var result = self.backtestSingle(chrono, tw.days, formula, 1);
+        results1.push(result);
+      });
+
+      // Ngau nhien 1 con
+      var random1 = self.backtestRandom(chrono, tw.days, 1);
+      results1.push({ name: "Ngau nhien", winRate: random1.winRate, profit: random1.profit, wins: random1.wins, total: random1.total });
+
+      results1.sort(function(a, b) { return b.winRate - a.winRate; });
+
+      results1.forEach(function(r, i) {
+        var mark = i === 0 ? " *" : "";
+        self.addLine((i + 1) + ". " + r.name + mark + ": " + r.winRate.toFixed(2) + "% | LN: " + (r.profit >= 0 ? "+" : "") + r.profit + " (" + r.wins + "/" + r.total + ")");
+      });
+
+      // So sanh
+      var best2 = results2[0];
+      var best1 = results1[0];
+
+      self.addLine("");
+      self.addLine("=> 2 con tot nhat: " + best2.name + " (" + best2.winRate.toFixed(2) + "%)");
+      self.addLine("=> 1 con tot nhat: " + best1.name + " (" + best1.winRate.toFixed(2) + "%)");
+    });
+
+    self.addLine("");
+    self.addLine("=> NEU LOI NHUAN AM: KHONG NEN DANH!");
+  },
+
+  // Backtest 1 cong thuc
+  backtestSingle: function(chrono, windowDays, formula, numPicks) {
+    var wins = 0;
+    var total = 0;
+    var profit = 0;
+
+    for (var i = windowDays + 10; i < chrono.length - 1; i++) {
+      var data = chrono.slice(0, i);
+
+      var freq = new Array(100);
+      var lastSeen = new Array(100);
+      for (var ii = 0; ii < 100; ii++) {
+        freq[ii] = 0;
+        lastSeen[ii] = 0;
+      }
+
+      // Chi lay windowDays ngay gan nhat
+      var recentData = data.slice(-windowDays);
+      for (var d = 0; d < recentData.length; d++) {
+        var dayArr = recentData[d];
+        for (var j = 0; j < dayArr.length; j++) {
+          var n = dayArr[j];
+          freq[n]++;
+        }
+      }
+
+      var N = recentData.length;
+      for (var n = 0; n < 100; n++) {
+        for (var dd = N - 1; dd >= 0; dd--) {
+          if (recentData[dd].indexOf(n) !== -1) {
+            lastSeen[n] = N - 1 - dd;
+            break;
+          }
+        }
+        if (lastSeen[n] === 0) lastSeen[n] = N;
+      }
+
+      var maxFreq = 1;
+      for (var ii2 = 0; ii2 < 100; ii2++) {
+        if (freq[ii2] > maxFreq) maxFreq = freq[ii2];
+      }
+
+      var scores = [];
+
+      for (var nn = 0; nn < 100; nn++) {
+        if (lastSeen[nn] > formula.khanThreshold) continue;
+
+        var freqScore = (freq[nn] / maxFreq) * formula.freqWeight;
+        var gapScore = Math.min(lastSeen[nn] / 10, 1) * formula.gapWeight;
+        var score = freqScore + gapScore;
+
+        scores.push({ n: nn, score: score });
+      }
+
+      scores.sort(function(a, b) { return b.score - a.score; });
+
+      if (scores.length >= numPicks) {
+        var picks = [];
+        for (var p = 0; p < numPicks; p++) {
+          picks.push(scores[p].n);
+        }
+
+        var nextDay = chrono[i];
+        var hit = false;
+        for (var k = 0; k < nextDay.length; k++) {
+          if (picks.indexOf(nextDay[k]) !== -1) {
+            hit = true;
+            break;
+          }
+        }
+
+        total++;
+        if (hit) {
+          wins++;
+          profit += 1;
+        } else {
+          profit -= 1;
+        }
+      }
+    }
+
+    return {
+      name: formula.name,
+      winRate: total > 0 ? (wins / total * 100) : 0,
+      wins: wins,
+      total: total,
+      profit: profit
+    };
+  },
+
+  // Backtest ngau nhien
+  backtestRandom: function(chrono, windowDays, numPicks) {
+    var wins = 0;
+    var total = 0;
+    var profit = 0;
+
+    for (var i = windowDays + 10; i < chrono.length - 1; i++) {
+      var data = chrono.slice(0, i);
+      var recentData = data.slice(-windowDays);
+
+      // Lay cac so co the danh (khong khan)
+      var lastSeen = new Array(100);
+      var N = recentData.length;
+      for (var n = 0; n < 100; n++) {
+        lastSeen[n] = N;
+        for (var d = N - 1; d >= 0; d--) {
+          if (recentData[d].indexOf(n) !== -1) {
+            lastSeen[n] = N - 1 - d;
+            break;
+          }
+        }
+      }
+
+      var validNums = [];
+      for (var n2 = 0; n2 < 100; n2++) {
+        if (lastSeen[n2] <= 5) validNums.push(n2);
+      }
+
+      if (validNums.length >= numPicks) {
+        // Chon ngau nhien
+        var picks = [];
+        var temp = validNums.slice();
+        for (var p = 0; p < numPicks && temp.length > 0; p++) {
+          var idx = Math.floor(Math.random() * temp.length);
+          picks.push(temp[idx]);
+          temp.splice(idx, 1);
+        }
+
+        var nextDay = chrono[i];
+        var hit = false;
+        for (var k = 0; k < nextDay.length; k++) {
+          if (picks.indexOf(nextDay[k]) !== -1) {
+            hit = true;
+            break;
+          }
+        }
+
+        total++;
+        if (hit) {
+          wins++;
+          profit += 1;
+        } else {
+          profit -= 1;
+        }
+      }
+    }
+
+    return {
+      winRate: total > 0 ? (wins / total * 100) : 0,
+      wins: wins,
+      total: total,
+      profit: profit
+    };
   }
 };
 

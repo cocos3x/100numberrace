@@ -1,32 +1,19 @@
 import { LodeOnline } from "./lodeOnline.js";
 
-function escapeHtml(s) {
-  if (!s) return "";
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("START: indexz.js running");
 
-window.addEventListener("DOMContentLoaded", () => {
-  LodeOnline.run();
+  try {
+    console.log("Calling LodeOnline.run()...");
+    await LodeOnline.run();
 
-  document.getElementById("output").innerHTML =
-    escapeHtml(LodeOnline.lines.join("\n"));
+    console.log("Done. Lines: " + LodeOnline.lines.length);
+    console.log("First 3 lines: " + JSON.stringify(LodeOnline.lines.slice(0, 3)));
 
-  const map = {
-    copyBtn: LodeOnline.copy,
-    copyBtn2: LodeOnline.copy25,
-    copyBtn3: LodeOnline.copy36,
-    copyBtn4: LodeOnline.copy49,
-    copyBtn5: LodeOnline.copy16,
-    copyBtn6: LodeOnline.copy33
-  };
-
-  Object.keys(map).forEach(id => {
-    document.getElementById(id).onclick = async () => {
-      await navigator.clipboard.writeText(map[id] || "");
-      alert("✅ Đã copy!");
-    };
-  });
+    document.getElementById("output").textContent = LodeOnline.lines.join("\n");
+    console.log("DONE: output set");
+  } catch (e) {
+    console.error("ERROR:", e);
+    document.getElementById("output").textContent = "Error: " + e.message;
+  }
 });
